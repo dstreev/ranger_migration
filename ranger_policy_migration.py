@@ -11,7 +11,7 @@ import requests
 
 from requests.auth import HTTPBasicAuth
 
-VERSION = "0.2.0"
+VERSION = "1.0.1"
 
 # logger = logging.getLogger('ranger_policy_migration')
 
@@ -23,6 +23,8 @@ password = ''
 
 REST_POLICY = 'public/v2/api/policy'
 REST_SERVICE = 'public/v2/api/service'
+MERGE_IF_EXISTS = "mergeIfExists"
+UPDATE_IF_EXISTS = "updateIfExists"
 
 log_output_file = None
 include_list = []
@@ -36,6 +38,8 @@ def main():
     global log_output_file
     global include_list
     global exclude_list
+
+    print ("Ranger Policy Migration Tool v" + VERSION)
 
     parser = optparse.OptionParser(usage='usage: %prog [options]')
 
@@ -156,14 +160,15 @@ def upsert(service_info):
     policy_url = host_url + '/' + SERVICE_ENDPOINT + '/public/v2/api/policy/apply'
     for policy in service_info['from']['policies']:
         if check(policy):
-            action = {'action': 'move',
+            action = {'action': 'upsert',
                       'from': service_info['from']['name'],
                       'to': service_info['to']['name'],
                       'policy': policy}
             # Create copy.
             upsert_policy = dict(policy)
             upsert_policy['service'] = service_info['to']['name']
-            r = requests.post(policy_url, auth=HTTPBasicAuth(username, password),
+            params = {MERGE_IF_EXISTS: "true"}
+            r = requests.post(policy_url, params=params, auth=HTTPBasicAuth(username, password),
                               json=upsert_policy, verify=False)
             if r.status_code == 200:
                 action['status'] = '200-success'
@@ -251,7 +256,7 @@ def validate_services(service_from, service_to):
     if r.status_code is not 200:
         print('Issue with request.  Check credentials and url.')
         print('URL: ' + r.url)
-        print('Status Code: ' + r.status_code)
+        print('Status Code: ' + str(r.status_code))
         exit(-1)
     serviceList = json.loads(r.text)
 
